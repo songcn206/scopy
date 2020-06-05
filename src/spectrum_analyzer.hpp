@@ -49,6 +49,7 @@ extern "C" {
 
 namespace Ui {
 class SpectrumAnalyzer;
+class MeasurementsPanel;
 }
 
 namespace adiscope {
@@ -56,6 +57,12 @@ class SpectrumChannel;
 class Filter;
 class ChannelWidget;
 class DbClickButtons;
+
+
+
+class MeasurementData;
+class MeasurementGui;
+class MeasureSettings;
 }
 
 class QPushButton;
@@ -111,6 +118,8 @@ private Q_SLOTS:
 	void on_btnSettings_clicked(bool checked);
 	void on_btnSweep_toggled(bool checked);
 	void on_btnMarkers_toggled(bool checked);
+    void on_btnMeasure_toggled(bool);
+    void on_boxMeasure_toggled(bool);
 	void on_comboBox_type_currentIndexChanged(const QString&);
 	void on_comboBox_window_currentIndexChanged(const QString&);
 	void on_spinBox_averaging_valueChanged(int);
@@ -180,6 +189,14 @@ private:
 
 private:
 	Ui::SpectrumAnalyzer *ui;
+
+
+
+    QWidget *measurePanel;
+    Ui::MeasurementsPanel *measure_panel_ui;
+    adiscope::MeasureSettings *measure_settings;
+
+
 	adiscope::DbClickButtons *marker_selector;
 
 	QButtonGroup *settings_group;
@@ -228,6 +245,11 @@ private:
 	ChannelWidget *getChannelWidgetAt(unsigned int id);
 	void updateMarkerMenu(unsigned int id);
 	bool isIioManagerStarted() const;
+
+
+    //void measure_settings_init();
+    void measure_panel_init();
+    void init_selected_measurements(int, std::vector<int>);
 };
 
 class SpectrumChannel: public QObject

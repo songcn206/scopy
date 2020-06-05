@@ -33,6 +33,9 @@
 #include <QDebug>
 #include <QFileDialog>
 #include <QCheckBox>
+#include <QtWidgets/QSpacerItem>
+#include <QtWidgets>
+
 
 /* Local includes */
 #include "logging_categories.h"
@@ -47,9 +50,13 @@
 #include "db_click_buttons.hpp"
 #include "filemanager.h"
 #include "spectrum_analyzer_api.hpp"
+#include "measure.h"
+#include "measurement_gui.h"
+
 
 /* Generated UI */
 #include "ui_spectrum_analyzer.h"
+#include "ui_measure_panel.h"
 
 #include <boost/make_shared.hpp>
 #include <iio.h>
@@ -193,7 +200,18 @@ SpectrumAnalyzer::SpectrumAnalyzer(struct iio_context *ctx, Filter *filt,
 	settings_group->addButton(ui->btnSweep);
 	settings_group->addButton(ui->btnMarkers);
 	settings_group->addButton(ui->btnAddRef);
+    settings_group->addButton(ui->btnMeasure);
 	settings_group->setExclusive(true);
+
+    /* Measure panel */
+    measure_panel_init();
+
+    // afisez masuratorile
+    // connect(ui->boxMeasure, SIGNAL(toggled(bool)),
+    //         SLOT(setMeasuremensEnabled(bool)));
+    //  connect(ui->boxMeasure, &QCheckBox::toggled,
+    //          [=](bool on) { cr_ui->readoutsWidget->setVisible(!on); });
+
 
 	fft_plot = new FftDisplayPlot(num_adc_channels, this);
 	fft_plot->canvas()->setStyleSheet(QString("QwtPlotCanvas { "
@@ -202,6 +220,8 @@ SpectrumAnalyzer::SpectrumAnalyzer(struct iio_context *ctx, Filter *filt,
 	fft_plot->setAxisScale(QwtPlot::yLeft, -200, 0, 10);
 	// Disable mouse interactions with the axes until they are in a working state
 	fft_plot->setXaxisMouseGesturesEnabled(false);
+
+    ui->gridLayoutPlot->addWidget(measurePanel, 0, 1, 1, 1);
 
 	for (uint i = 0; i < num_adc_channels; i++) {
 		fft_plot->setYaxisMouseGesturesEnabled(i, false);
@@ -381,6 +401,10 @@ SpectrumAnalyzer::SpectrumAnalyzer(struct iio_context *ctx, Filter *filt,
 	for (auto ch: channels) {
 		ch->setFftWindow(FftWinType::HAMMING, fft_size);
 	}
+
+//    for (unsigned int i = 0; i < nb_ref_channels; i++) {
+//        init_selected_measurements(i, {0, 1, 4, 5});
+//    }
 
 	connect(ui->logBtn, &QPushButton::toggled,
 		fft_plot, &FftDisplayPlot::useLogFreq);
@@ -693,7 +717,9 @@ void SpectrumAnalyzer::toggleRightMenu(CustomPushButton *btn, bool checked)
 			index = 3;
 		} else if (btn == ui->btnAddRef) {
 			index = 4;
-		}
+        }  else if (btn == ui->btnMeasure) {
+              index = 5;
+        }
 	}
 
 	if (id != -1) {
@@ -761,6 +787,68 @@ void SpectrumAnalyzer::on_btnMarkers_toggled(bool checked)
 
 	triggerRightMenuToggle(
 		static_cast<CustomPushButton *>(QObject::sender()), checked);
+}
+
+void SpectrumAnalyzer::on_btnMeasure_toggled(bool checked) {
+  if (!ui->boxMeasure->isChecked()) {
+    ui->btnMeasure->setChecked(false);
+    menuOrder.removeOne(ui->btnMeasure);
+  } else {
+    marker_menu_opened = checked;
+    triggerRightMenuToggle(static_cast<CustomPushButton *>(QObject::sender()),
+                           checked);
+  }
+}
+
+void SpectrumAnalyzer::measure_panel_init() {
+    measurePanel = new QWidget(this);
+
+    QHBoxLayout *layout = new QHBoxLayout();
+
+    QLabel *label= new QLabel(this);
+    label->setText("AAAAAAAAAAA");
+    label->setStyleSheet( "QWidget{ background-color : rgba( 160, 160, 160, 255); border-radius : 7px;  }" );
+    layout->addWidget(label);
+    measurePanel->setLayout(layout);
+//    measure_panel_ui = new Ui::MeasurementsPanel();
+//    measure_panel_ui->setupUi(measurePanel);
+
+//    connect(measure_panel_ui->scrollArea->horizontalScrollBar(),
+//          &QScrollBar::rangeChanged,
+//          measure_panel_ui->scrollArea_2->horizontalScrollBar(),
+//          &QScrollBar::setRange);
+
+//    connect(measure_panel_ui->scrollArea_2->horizontalScrollBar(),
+//          &QScrollBar::valueChanged,
+//          measure_panel_ui->scrollArea->horizontalScrollBar(),
+//          &QScrollBar::setValue);
+//    connect(measure_panel_ui->scrollArea->horizontalScrollBar(),
+//          &QScrollBar::valueChanged,
+//          measure_panel_ui->scrollArea_2->horizontalScrollBar(),
+//          &QScrollBar::setValue);
+
+//     connect(measure_panel_ui->scrollArea->horizontalScrollBar(),
+//          &QScrollBar::rangeChanged, [=](double v1, double v2) {
+//            measure_panel_ui->scrollArea_2->widget()->setFixedWidth(
+//                measure_panel_ui->scrollAreaWidgetContents->width());
+//          });
+
+     measurePanel->hide();
+
+  //  connect(&plot, SIGNAL(measurementsAvailable()),
+  //          SLOT(onMeasuremetsAvailable()));
+}
+
+
+void SpectrumAnalyzer::on_boxMeasure_toggled(bool checked) {
+  if (checked) {
+    // update_measure_for_channel(current_channel);
+  } else {
+    if (ui->btnMeasure->isChecked())
+      ui->btnMeasure->setChecked(false);
+    menuOrder.removeOne(ui->btnMeasure);
+  }
+  measurePanel->setVisible(checked);
 }
 
 void SpectrumAnalyzer::on_btnAddRef_toggled(bool checked)
