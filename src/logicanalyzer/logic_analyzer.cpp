@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2020 Analog Devices Inc.
  *
@@ -43,9 +44,18 @@
 
 #include "filter.hpp"
 
+
 #include "osc_export_settings.h"
 #include "filemanager.h"
 #include "config.h"
+
+#include <m2k/digital_in_source.h>
+#include <gnuradio/top_block.h>
+#include <gnuradio/blocks/vector_sink.h>
+#include <gnuradio/blocks/head.h>
+
+#include <m2k/analog_in_source.h>
+
 
 using namespace adiscope;
 using namespace adiscope::logic;
@@ -102,7 +112,9 @@ LogicAnalyzer::LogicAnalyzer(struct iio_context *ctx, adiscope::Filter *filt,
 	m_autoMode(false),
 	m_timer(new QTimer(this)),
 	m_timerTimeout(1000),
-	m_exportSettings(nullptr)
+	m_exportSettings(nullptr),
+	m_saveRestoreSettings(nullptr)
+
 {
 	// setup ui
 	setupUi();
@@ -251,6 +263,117 @@ LogicAnalyzer::~LogicAnalyzer()
 
 	delete cr_ui;
 	delete ui;
+}
+
+void LogicAnalyzer::setData(const uint16_t * const data, int size)
+{
+
+	if (m_buffer) {
+		delete m_buffer;
+		m_buffer = nullptr;
+	}
+
+	m_buffer = new uint16_t[size];
+
+	memcpy(m_buffer, data, size * sizeof(uint16_t));
+	Q_EMIT dataAvailable(0, size);
+
+}
+
+std::vector<QWidget *> LogicAnalyzer::enableMixedSignalView(CapturePlot *osc, int oscAnalogChannels)
+{
+	// save the state of the tool
+	m_saveRestoreSettings = std::unique_ptr<SaveRestoreToolSettings>(new SaveRestoreToolSettings(this));
+
+	// disable the menu item for the logic analyzer when mixed signal view is enabled
+	toolMenuItem->setDisabled(true);
+
+	m_oscPlot = osc;
+
+	m_oscAnalogChannels = oscAnalogChannels;
+
+	QWidget *channelEnumerator = new QWidget();
+	QVBoxLayout *layout = new QVBoxLayout();
+	QGridLayout *chEnumeratorLayout = new QGridLayout();
+	channelEnumerator->setLayout(layout);
+	layout->insertLayout(0, chEnumeratorLayout);
+	// move plot curves (logic + decoder) to osc plot
+	for (uint8_t i = 0; i < m_nbChannels; ++i) {
+
+		LogicDataCurve *curve = new LogicDataCurve(nullptr, i, this);
+		curve->setTraceHeight(25);
+		m_oscPlot->addDigitalPlotCurve(curve, false);
+
+		connect(this, &LogicAnalyzer::dataAvailable, this,
+			[=](uint64_t from, uint64_t to){
+			curve->dataAvailable(from, to);
+		}, Qt::DirectConnection);
+
+		QCheckBox *channelBox = new QCheckBox("DIO " + QString::number(i));
+
+		QHBoxLayout *hBoxLayout = new QHBoxLayout(this);
+
+		chEnumeratorLayout->addLayout(hBoxLayout, i % 8, i / 8);
+
+		hBoxLayout->addWidget(channelBox);
+
+		QComboBox *triggerBox = new QComboBox();
+		triggerBox->addItem("-");
+
+		hBoxLayout->addWidget(triggerBox);
+
+		channelBox->setChecked(true);
+
+		for (int i = 1; i < ui->triggerComboBox->count(); ++i) {
+			triggerBox->addItem(ui->triggerComboBox->itemIcon(i),
+					    ui->triggerComboBox->itemText(i));
+		}
+
+		int condition = static_cast<int>(
+					m_m2kDigital->getTrigger()->getDigitalCondition(i));
+		triggerBox->setCurrentIndex((condition + 1) % 6);
+
+		connect(triggerBox, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+			m_m2kDigital->getTrigger()->setDigitalCondition(i,
+					static_cast<libm2k::M2K_TRIGGER_CONDITION_DIGITAL>((index + 5) % 6));
+		});
+
+		connect(channelBox, &QCheckBox::toggled, [=](bool toggled){
+			m_oscPlot->enableDigitalPlotCurve(i, toggled);
+			m_oscPlot->setOffsetWidgetVisible(i + m_oscAnalogChannels, toggled);
+			m_oscPlot->positionInGroupChanged(i + m_oscAnalogChannels, 0, 0);
+			m_oscPlot->replot();
+		});
+		channelBox->setChecked(false);
+	}
+
+	layout->insertSpacerItem(-1, new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));
+
+	return {channelEnumerator};
+}
+
+void LogicAnalyzer::disableMixedSignalView()
+{
+	// restore the menu item availability
+	toolMenuItem->setEnabled(true);
+
+	// restore the state of the tool
+	m_saveRestoreSettings.reset(nullptr);
+}
+
+void LogicAnalyzer::addCurveToPlot(QwtPlotCurve *curve)
+{
+
+}
+
+QwtPlot *LogicAnalyzer::getCurrentPlot()
+{
+	return nullptr;
+}
+
+void LogicAnalyzer::connectSignalsAndSlotsForPlot(CapturePlot *plot)
+{
+
 }
 
 void LogicAnalyzer::on_btnChannelSettings_toggled(bool checked)
@@ -974,7 +1097,7 @@ void LogicAnalyzer::initBufferScrolling()
 void LogicAnalyzer::startStop(bool start)
 {
 	if (m_started == start) {
-		return;
+			return;
 	}
 
 	m_started = start;
