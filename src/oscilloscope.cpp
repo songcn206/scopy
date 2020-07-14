@@ -94,7 +94,7 @@ Oscilloscope::Oscilloscope(struct iio_context *ctx, Filter *filt,
 			   ToolMenuItem *toolMenuItem,
 			   QJSEngine *engine, ToolLauncher *parent) :
 	Tool(ctx, toolMenuItem, new Oscilloscope_API(this), "Oscilloscope", parent),
-	m_m2k_context(m2kOpen(ctx, "")),
+	m_m2k_context(m2kOpen(ctx, "usb:1.10.5")),
 	m_m2k_analogin(m_m2k_context->getAnalogIn()),
 	m_m2k_digital(m_m2k_context->getDigital()),
 	nb_channels(m_m2k_analogin->getNbChannels()),
@@ -142,7 +142,8 @@ Oscilloscope::Oscilloscope(struct iio_context *ctx, Filter *filt,
 	gatingEnabled(false),
 	m_filtering_enabled(true),
 	m_logicAnalyzer(nullptr),
-	m_mixedSignalViewEnabled(false)
+	m_mixedSignalViewEnabled(false),
+	logic_top_block(nullptr)
 {
 	ui->setupUi(this);
 	int triggers_panel = ui->stackedWidget->insertWidget(-1, &trigger_settings);
@@ -1277,6 +1278,22 @@ void Oscilloscope::enableMixedSignalView()
 										    nb_channels + nb_math_channels + nb_ref_channels);
 
 	ui->logicSettingsLayout->addWidget(logicWidgets[0]);
+
+	// configure flowgraph for logic acquisition
+
+	logic_top_block = gr::make_top_block("LA_MIXED");
+
+	logic_source = gr::m2k::digital_in_source::make_from_ctx(m_m2k_context,
+								 active_sample_count,
+								 0 /*not used*/,
+								 active_sample_rate,
+								 64,
+								 false);
+
+	logic_source->set_sync_with_analog(true);
+
+	logic_sink = logic_analyzer_sink::make(m_logicAnalyzer, active_sample_count);
+	logic_top_block->connect(logic_source, 0, logic_sink, 0);
 }
 
 void Oscilloscope::toggleMiniHistogramPlotVisible(bool enabled)
@@ -2513,6 +2530,34 @@ void Oscilloscope::toggle_blockchain_flow(bool en)
 //		const uint16_t * const temp = m_m2k_digital->getSamplesP(active_sample_count);
 //		m_logicAnalyzer->setData(temp, active_sample_count);
 //	}
+
+	if (logic_top_block) {
+
+		m_m2k_digital->setSampleRateIn(active_sample_rate);
+		// active_sample_count
+		m_m2k_digital->getTrigger()->setDigitalStreamingFlag(false);
+		m_m2k_digital->getTrigger()->setDigitalDelay(-active_time_pos * active_sample_rate);
+		qDebug() << "time pos: " << active_time_pos << "   active sample rate: " << active_sample_rate;
+		for (int i = 0; i < 16; ++i) {
+			QwtPlotCurve *curve = plot.getDigitalPlotCurve(i);
+			GenericLogicPlotCurve *logic_curve = dynamic_cast<GenericLogicPlotCurve *>(curve);
+			logic_curve->reset();
+
+			logic_curve->setSampleRate(active_sample_rate);
+			logic_curve->setBufferSize(active_sample_count);
+
+			logic_curve->setTimeTriggerOffset(-(active_sample_count / 2.0) + (active_time_pos * active_sample_rate));
+		}
+
+		if (en) {
+			logic_top_block->stop();
+			logic_top_block->wait();
+			logic_top_block->start();
+		} else {
+			logic_top_block->stop();
+			logic_top_block->wait();
+		}
+	}
 }
 
 void Oscilloscope::run()

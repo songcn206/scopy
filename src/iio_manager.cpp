@@ -58,7 +58,9 @@ iio_manager::iio_manager(unsigned int block_id,
 //			std::vector<std::string>(),
 //			_buffer_size);
 
-	iio_block = gr::m2k::analog_in_source::make_from_ctx(libm2k::context::m2kOpen(ctx, ""),
+	iio_context_set_timeout(ctx, 200);
+
+	iio_block = gr::m2k::analog_in_source::make_from_ctx(libm2k::context::m2kOpen(ctx, "usb:1.10.5"),
 							     _buffer_size,
 							     {1, 1},
 							     {0, 0},

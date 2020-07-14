@@ -72,6 +72,10 @@
 #include <libm2k/digital/m2kdigital.hpp>
 #include <libm2k/m2k.hpp>
 
+/* gr-m2k includes */
+#include <m2k/digital_in_source.h>
+#include "logic_analyzer_sink.h"
+
 /*Generated UI */
 #include "ui_math_panel.h"
 
@@ -471,6 +475,9 @@ namespace adiscope {
 
 		logic::LogicAnalyzer *m_logicAnalyzer;
 		bool m_mixedSignalViewEnabled;
+		gr::m2k::digital_in_source::sptr logic_source;
+		gr::top_block_sptr logic_top_block;
+		logic_analyzer_sink::sptr logic_sink;
 	};
 }
 #endif /* M2K_OSCILLOSCOPE_H */
