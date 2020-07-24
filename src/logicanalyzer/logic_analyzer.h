@@ -203,6 +203,9 @@ private:
 	std::unique_ptr<SaveRestoreToolSettings> m_saveRestoreSettings;
 	CapturePlot *m_oscPlot;
 	int m_oscAnalogChannels;
+	int m_oscChannelSelected;
+	QVector<GenericLogicPlotCurve *> m_oscPlotCurves;
+	QWidget *m_oscDecoderMenu;
 
 
 };

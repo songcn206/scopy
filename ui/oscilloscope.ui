@@ -772,6 +772,9 @@ QPushButton:checked:hover {
                  <verstretch>0</verstretch>
                 </sizepolicy>
                </property>
+               <property name="currentIndex">
+                <number>1</number>
+               </property>
                <widget class="QWidget" name="channelSettings"/>
                <widget class="QWidget" name="logicSettings">
                 <property name="minimumSize">
@@ -821,13 +824,13 @@ color: rgba(255, 255, 255, 153);
                   <number>0</number>
                  </property>
                  <property name="leftMargin">
-                  <number>0</number>
+                  <number>15</number>
                  </property>
                  <property name="topMargin">
                   <number>0</number>
                  </property>
                  <property name="rightMargin">
-                  <number>0</number>
+                  <number>15</number>
                  </property>
                  <property name="bottomMargin">
                   <number>0</number>

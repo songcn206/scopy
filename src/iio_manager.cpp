@@ -58,9 +58,9 @@ iio_manager::iio_manager(unsigned int block_id,
 //			std::vector<std::string>(),
 //			_buffer_size);
 
-	iio_context_set_timeout(ctx, 200);
+	iio_context_set_timeout(ctx, 1000);
 
-	iio_block = gr::m2k::analog_in_source::make_from_ctx(libm2k::context::m2kOpen(ctx, "usb:1.10.5"),
+	iio_block = gr::m2k::analog_in_source::make_from(libm2k::context::m2kOpen(ctx, "usb:1.10.5"),
 							     _buffer_size,
 							     {1, 1},
 							     {0, 0},
@@ -73,7 +73,10 @@ iio_manager::iio_manager(unsigned int block_id,
 							     {0, 0},
 							     0,
 							     0,
-							     {0, 0});
+							     {0, 0},
+							     false,
+							     200,
+							     false);
 
 	/* Avoid unconnected channel errors by connecting a dummy sink */
 	auto dummy_copy = blocks::copy::make(sizeof(short));
@@ -98,11 +101,11 @@ iio_manager::iio_manager(unsigned int block_id,
 
 	dummy_copy->set_enabled(true);
 
-//	auto timeout_b = gnuradio::get_initial_sptr(new timeout_block("msg"));
-//	hier_block2::msg_connect(iio_block, "msg", timeout_b, "msg");
+	auto timeout_b = gnuradio::get_initial_sptr(new timeout_block("msg"));
+	hier_block2::msg_connect(iio_block, "msg", timeout_b, "msg");
 
-//	QObject::connect(&*timeout_b, SIGNAL(timeout()), this,
-//			SLOT(got_timeout()));
+	QObject::connect(&*timeout_b, SIGNAL(timeout()), this,
+			SLOT(got_timeout()));
 }
 
 iio_manager::~iio_manager()
@@ -357,5 +360,5 @@ void iio_manager::got_timeout()
 
 void iio_manager::set_device_timeout(unsigned int mseconds)
 {
-//	iio_block->set_timeout_ms(mseconds);
+	iio_block->set_timeout_ms(mseconds);
 }

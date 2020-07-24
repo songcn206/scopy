@@ -1448,7 +1448,10 @@ void CapturePlot::removeDigitalPlotCurve(QwtPlotCurve *curve)
 //					group.first()->triggerMove();
 //				}
 //			}
-			removeOffsetWidgets(i);
+			// remove digital plot curves
+			// TODO: always keep digital stuff at the end ch1 ch2 ref1 ref2 d1 d2 ...
+			// add ref3 -> ch1 ch2 ref1 ref2 ref3 d1 d2 ...
+			removeOffsetWidgets(d_ydata.size() + d_ref_ydata.size() + i);
 
 //			int groupIndx = -1;
 //			for (int i = 0; i < d_groupHandles.size(); ++i) {
@@ -1577,9 +1580,9 @@ void CapturePlot::onDigitalChannelAdded(int chnIdx)
 
 //			qDebug() << pos;
 
-			QwtScaleMap yMap = this->canvasMap(QwtAxisId(QwtPlot::yLeft, 0));
+			QwtScaleMap yMap = this->canvasMap(QwtAxisId(QwtPlot::yLeft, chn_id));
 
-			auto y = axisInterval(QwtAxisId(QwtPlot::yLeft, 0));
+			auto y = axisInterval(QwtAxisId(QwtPlot::yLeft, chn_id));
 
 //			double min = -(yAxisNumDiv() / 2.0) * VertUnitsPerDiv(0);
 //			double max = (yAxisNumDiv() / 2.0) * VertUnitsPerDiv(0);

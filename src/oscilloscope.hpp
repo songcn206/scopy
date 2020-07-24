@@ -240,6 +240,8 @@ namespace adiscope {
 		void setFilteringEnabled(bool set);
 
 		void enableMixedSignalView();
+		void disableMixedSignalView();
+		void setDigitalPlotCurvesParams();
 
 	public Q_SLOTS:
 		void requestAutoset();
@@ -478,6 +480,7 @@ namespace adiscope {
 		gr::m2k::digital_in_source::sptr logic_source;
 		gr::top_block_sptr logic_top_block;
 		logic_analyzer_sink::sptr logic_sink;
+		std::vector<QWidget *> m_mixedSignalViewMenu;
 	};
 }
 #endif /* M2K_OSCILLOSCOPE_H */

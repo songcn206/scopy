@@ -123,6 +123,7 @@ void LogicDataCurve::drawLines(QPainter *painter, const QwtScaleMap &xMap,
 	const double heightInPoints = yMap.invTransform(0) - yMap.invTransform(m_traceHeight);
 
     // No data to plot
+//	qDebug() << "m_edges.size() : " << m_edges.size();
     if (!m_edges.size()) {
 	    if (m_startSample != m_endSample) {
 		const bool logicLevel = (m_logic->getData()[m_startSample] & (1 << m_bit)) >> m_bit;
