@@ -215,6 +215,10 @@ private:
 	libm2k::analog::GenericAnalogIn* m_generic_analogin;
 	Ui::SpectrumAnalyzer *ui;
 
+    //debug var
+    int first_two_times;
+    int counter_ref;
+
 
     QWidget *measurePanel;
     Ui::MeasurementsPanel *measure_panel_ui;
