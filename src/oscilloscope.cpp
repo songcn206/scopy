@@ -1306,6 +1306,8 @@ void Oscilloscope::enableMixedSignalView()
 	logic_sink = logic_analyzer_sink::make(m_logicAnalyzer, active_sample_count);
 //	logic_top_block->connect(logic_source, 0, logic_sink, 0);
 	iio->connect(logic_source, 0, logic_sink, 0);
+
+	m_m2k_context->startMixedSignalAcquisition(active_sample_count);
 }
 
 void Oscilloscope::disableMixedSignalView()
@@ -1314,9 +1316,10 @@ void Oscilloscope::disableMixedSignalView()
 	m_mixedSignalViewEnabled = false;
 
 	// disable mixed signal from logic
+	ui->logicSettingsLayout->removeWidget(m_mixedSignalViewMenu[0]);
 	m_logicAnalyzer->disableMixedSignalView();
 
-
+	m_mixedSignalViewMenu[0]->deleteLater();
 
 	// clear gnuradio logic flowgraph
 	iio->disconnect(logic_source, 0, logic_sink, 0);
@@ -1333,9 +1336,6 @@ void Oscilloscope::disableMixedSignalView()
 //			ui->logicSettingsLayout->removeWidget(item->widget());
 //		}
 //	}
-	for (QWidget *w : m_mixedSignalViewMenu) {
-		ui->logicSettingsLayout->removeWidget(w);
-	}
 }
 
 void Oscilloscope::setDigitalPlotCurvesParams()
@@ -2564,7 +2564,17 @@ void Oscilloscope::toggle_blockchain_flow(bool en)
 	if (en) {
 
 		if (logic_source) {
+			// set digital params; analog should be already set when this method is called
 			setDigitalPlotCurvesParams();
+
+			// clear data in sink blocks (analog + digital)
+			qt_time_block->clean_buffers();
+			qt_time_block->set_nsamps(active_sample_count);
+
+			logic_sink->clean_buffers();
+			logic_sink->set_nsamps(active_sample_count);
+
+			// start mixed signal acquisition
 			m_m2k_context->startMixedSignalAcquisition(active_sample_count);
 		}
 
@@ -2579,15 +2589,15 @@ void Oscilloscope::toggle_blockchain_flow(bool en)
 
 	} else {
 
-		if (logic_source) {
-//			m_m2k_context->stopMixedSignalAcquisition();
-		}
-
 		for (unsigned int i = 0; i < nb_channels; i++)
 			iio->stop(ids[i]);
 
 		if (autosetRequested) {
 			iio->stop(autoset_id[0]);			
+		}
+
+		if (logic_source) {
+			m_m2k_context->stopMixedSignalAcquisition();
 		}
 	}
 }
