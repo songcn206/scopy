@@ -78,7 +78,7 @@ static gint sort_pds(gconstpointer a, gconstpointer b)
     return strcmp(sda->id, sdb->id);
 }
 
-LogicAnalyzer::LogicAnalyzer(M2kDigital *m2kDigital, adiscope::Filter *filt,
+LogicAnalyzer::LogicAnalyzer(struct iio_context *ctx, adiscope::Filter *filt,
 			     adiscope::ToolMenuItem *toolMenuItem,
 			     QJSEngine *engine, adiscope::ToolLauncher *parent,
 			     bool offline_mode_):
@@ -295,6 +295,12 @@ void LogicAnalyzer::setData(const uint16_t * const data, int size)
 
 	memcpy(m_buffer, data, size * sizeof(uint16_t));
 	Q_EMIT dataAvailable(0, size);
+
+	if (m_oscPlot) {
+		QMetaObject::invokeMethod(this, [=](){
+			m_oscPlot->replot();
+		}, Qt::QueuedConnection);
+	}
 
 }
 
@@ -1519,159 +1525,6 @@ void LogicAnalyzer::startStop(bool start)
 			}, Qt::DirectConnection);
 
 		});
-		/* Test digital source block */
-//		auto digitalIn = gr::m2k::digital_in_source::make("ip:192.168.2.1",
-//								  bufferSizeAdjusted,
-//								  0 /*not used*/,
-//								  sampleRate,
-//								  64);
-//		auto top_block = gr::make_top_block("LogicAnalyzer");
-//		auto top_block2 = gr::make_top_block("LogicAnalyzer2");
-//		auto head_block = gr::blocks::head::make(sizeof(short), bufferSizeAdjusted);
-//		auto head_block2_1 = gr::blocks::head::make(sizeof(float), bufferSizeAdjusted);
-//		auto head_block2_2 = gr::blocks::head::make(sizeof(float), bufferSizeAdjusted);
-//		auto sink = gr::blocks::vector_sink<short>::make();
-
-//		top_block->connect(digitalIn, 0, head_block, 0);
-//		top_block->connect(head_block, 0, sink, 0);
-
-
-//		auto analogIn = gr::m2k::analog_in_source::make("ip:192.168.2.1",
-//								bufferSizeAdjusted,
-//								{1, 1},
-//								{0, 0},
-//								10000,
-//								1,
-//								4,
-//								false,
-//								true,
-//								{0, 0},
-//								{0, 0},
-//								0,
-//								0,
-//								{0, 0});
-//		auto sink2_1 = gr::blocks::vector_sink<float>::make();
-//		auto sink2_2 = gr::blocks::vector_sink<float>::make();
-
-//		top_block->connect(analogIn, 0, head_block2_1, 0);
-//		top_block->connect(head_block2_1, 0, sink2_1, 0);
-
-//		top_block->connect(analogIn, 1, head_block2_2, 0);
-//		top_block->connect(head_block2_2, 0, sink2_2, 0);
-
-//		digitalIn->set_sync_with_analog(true);
-//		analogIn
-
-//		top_block->start();
-//		qDebug() << "started first top block";
-////		top_block2->start();
-//		qDebug() << "started second top block";
-//		top_block->wait();
-////		top_block2->wait();
-
-//		qDebug() << "Captured DIGITAL: " << sink->data().size();
-//		qDebug() << "Captured ANALOG: " << sink2_1->data().size();
-
-//		m_buffer = new uint16_t[bufferSizeAdjusted];
-
-//		for (int i = 0; i < sink->data().size(); ++i) {
-//			m_buffer[i] = sink->data()[i];
-//		}
-
-//		Q_EMIT dataAvailable(0, bufferSizeAdjusted);
-
-//		m_captureThread = new std::thread([=](){
-
-//			if (m_buffer) {
-//				delete[] m_buffer;
-//				m_buffer = nullptr;
-//			}
-
-//			m_buffer = new uint16_t[bufferSize];
-
-//			QMetaObject::invokeMethod(this, [=](){
-//				m_plot.setTriggerState(CapturePlot::Waiting);
-//			}, Qt::QueuedConnection);
-
-//			if (ui->btnStreamOneShot->isChecked()) {
-//				try {
-//					const uint16_t * const temp = m_m2kDigital->getSamplesP(bufferSize);
-//					memcpy(m_buffer, temp, bufferSizeAdjusted * sizeof(uint16_t));
-
-//					QMetaObject::invokeMethod(this, [=](){
-//						m_plot.setTriggerState(CapturePlot::Triggered);
-//					}, Qt::QueuedConnection);
-
-//					m_lastCapturedSample = bufferSize;
-//					Q_EMIT dataAvailable(0, bufferSize);
-//					updateBufferPreviewer(0, m_lastCapturedSample);
-
-//				} catch (std::invalid_argument &e) {
-//					qDebug() << e.what();
-//				}
-//			} else {
-//				uint64_t chunks = 4;
-//				while ((bufferSizeAdjusted >> chunks) > (1 << 19)) {
-//					chunks++; // select a small size for the chunks
-//					// example: 2^19 samples in each chunk
-//				}
-//				const uint64_t chunk_size = (bufferSizeAdjusted >> chunks) > 0 ? (bufferSizeAdjusted >> chunks) : 4 ;
-//				uint64_t totalSamples = bufferSizeAdjusted;
-//				m_m2kDigital->setKernelBuffersCountIn(64);
-//				uint64_t absIndex = 0;
-
-//				do {
-//					const uint64_t captureSize = std::min(chunk_size, totalSamples);
-//					try {
-//						const uint16_t * const temp = m_m2kDigital->getSamplesP(captureSize);
-//						memcpy(m_buffer + absIndex, temp, sizeof(uint16_t) * captureSize);
-//						absIndex += captureSize;
-//						totalSamples -= captureSize;
-
-//						QMetaObject::invokeMethod(this, [=](){
-//							m_plot.setTriggerState(CapturePlot::Triggered);
-//						}, Qt::QueuedConnection);
-
-//					} catch (std::invalid_argument &e) {
-//						qDebug() << e.what();
-//						break;
-//					}
-
-//					if (m_stopRequested) {
-//						break;
-//					}
-
-//					Q_EMIT dataAvailable(absIndex - captureSize, absIndex);
-
-//					QMetaObject::invokeMethod(&m_plot, // trigger replot on Main Thread
-//								  "replot",
-//								  Qt::QueuedConnection);
-//					m_lastCapturedSample = absIndex;
-//					updateBufferPreviewer(0, m_lastCapturedSample);
-
-//				} while (totalSamples);
-//			}
-
-//			m_started = false;
-
-//			QMetaObject::invokeMethod(this,
-//						  "restoreTriggerState",
-//						  Qt::DirectConnection);
-
-//			//
-//			QMetaObject::invokeMethod(ui->runSingleWidget,
-//						  "toggle",
-//						  Qt::QueuedConnection,
-//						  Q_ARG(bool, false));
-
-//			QMetaObject::invokeMethod(&m_plot,
-//						  "replot");
-
-//			QMetaObject::invokeMethod(this, [=](){
-//				m_plot.setTriggerState(CapturePlot::Stop);
-//			}, Qt::QueuedConnection);
-
-//		});
 
 	} else {
 		if (m_captureThread) {
