@@ -30,6 +30,9 @@
 #include <frequency_compensation_filter.h>
 
 #include <m2k/analog_in_source.h>
+#include <libm2k/contextbuilder.hpp>
+#include <libm2k/m2k.hpp>
+#include <libm2k/analog/m2kanalogin.hpp>
 
 #include <mutex>
 
@@ -97,7 +100,13 @@ namespace adiscope {
 		 * are not properly routed to the blocks connected during the
 		 * reconfiguration. So until GNU Radio gets fixed, we just force
 		 * the whole flowgraph to stop when connecting new blocks. */
-		void lock() { gr::top_block::stop(); gr::top_block::wait(); }
+		void lock() {
+			gr::top_block::stop();
+			// cancel acquisition, work might be blocked waiting for a trigger
+			// and the timeout. Don't wait for it just cancel the acquisition
+			m_analogin->cancelAcquisition();
+			gr::top_block::wait();
+		}
 		void unlock() { gr::top_block::start(); }
 
 		/* Set the timeout for the source device */
@@ -106,6 +115,8 @@ namespace adiscope {
 		adiscope::frequency_compensation_filter::sptr freq_comp_filt[2][2];
 
 	private:
+		libm2k::analog::M2kAnalogIn *m_analogin;
+
 		static std::map<const std::string, map_entry> dev_map;
 		static unsigned _id;
 		std::mutex copy_mutex;

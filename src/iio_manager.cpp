@@ -29,8 +29,6 @@
 
 #include <iio.h>
 
-#include <libm2k/contextbuilder.hpp>
-
 using namespace adiscope;
 using namespace gr;
 
@@ -42,7 +40,8 @@ iio_manager::iio_manager(unsigned int block_id,
 		unsigned long _buffer_size) :
 	QObject(nullptr),
 	top_block("IIO Manager " + std::to_string(block_id)),
-	id(block_id), _started(false), buffer_size(_buffer_size)
+	id(block_id), _started(false), buffer_size(_buffer_size),
+	m_analogin(libm2k::context::m2kOpen(ctx, "")->getAnalogIn())
 {
 	if (!ctx)
 		throw std::runtime_error("IIO context not created");
@@ -58,9 +57,9 @@ iio_manager::iio_manager(unsigned int block_id,
 //			std::vector<std::string>(),
 //			_buffer_size);
 
-	iio_context_set_timeout(ctx, 1000);
+//	iio_context_set_timeout(ctx, 1000);
 
-	iio_block = gr::m2k::analog_in_source::make_from(libm2k::context::m2kOpen(ctx, "usb:1.10.5"),
+	iio_block = gr::m2k::analog_in_source::make_from(libm2k::context::m2kOpen(ctx, ""),
 							     _buffer_size,
 							     {1, 1},
 							     {0, 0},

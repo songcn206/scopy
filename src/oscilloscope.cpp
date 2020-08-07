@@ -1307,7 +1307,18 @@ void Oscilloscope::enableMixedSignalView()
 //	logic_top_block->connect(logic_source, 0, logic_sink, 0);
 	iio->connect(logic_source, 0, logic_sink, 0);
 
-	m_m2k_context->startMixedSignalAcquisition(active_sample_count);
+	boost::shared_ptr<adc_sample_conv> block =
+	dynamic_pointer_cast<adc_sample_conv>(
+					adc_samp_conv_block);
+
+	s2f = gr::blocks::short_to_float::make();
+	add = gr::blocks::add_ff::make();
+	nullSink = gr::blocks::null_sink::make(sizeof(float));
+
+	iio->connect(logic_source, 0, s2f, 0);
+	iio->connect(s2f, 0, add, 0);
+	iio->connect(block, 0, add, 1);
+	iio->connect(add, 0, nullSink, 0);
 }
 
 void Oscilloscope::disableMixedSignalView()
@@ -1323,6 +1334,15 @@ void Oscilloscope::disableMixedSignalView()
 
 	// clear gnuradio logic flowgraph
 	iio->disconnect(logic_source, 0, logic_sink, 0);
+
+	boost::shared_ptr<adc_sample_conv> block =
+	dynamic_pointer_cast<adc_sample_conv>(
+					adc_samp_conv_block);
+
+	iio->disconnect(logic_source, 0, s2f, 0);
+	iio->disconnect(s2f, 0, add, 0);
+	iio->disconnect(block, 0, add, 1);
+	iio->disconnect(add, 0, nullSink, 0);
 
 	logic_top_block->disconnect_all();
 	logic_top_block = nullptr;
@@ -1544,7 +1564,6 @@ void Oscilloscope::activateAcCoupling(int i)
 		logic_source->set_buffer_size(active_sample_count);
 		setDigitalPlotCurvesParams();
 	}
-
 	if(started) {
 		iio->unlock();
 	}
@@ -2574,7 +2593,17 @@ void Oscilloscope::toggle_blockchain_flow(bool en)
 			logic_sink->clean_buffers();
 			logic_sink->set_nsamps(active_sample_count);
 
+			// flush device buffers
+//			m_m2k_digital->reset();
+//			m_m2k_analogin->reset();
+//			m_m2k_context->
+
+			// set kernel buffers
+			m_m2k_digital->setKernelBuffersCountIn(64);
+			m_m2k_analogin->setKernelBuffersCount(64);
+
 			// start mixed signal acquisition
+//			m_m2k_analogin->cancelAcquisition();
 			m_m2k_context->startMixedSignalAcquisition(active_sample_count);
 		}
 
@@ -2646,9 +2675,9 @@ void Oscilloscope::runStopToggled(bool checked)
 
 		setTrigger_input(false);
 
-		toggle_blockchain_flow(true);
 		resetStreamingFlag(symmBufferMode->isEnhancedMemDepth()
 				   || plot_samples_sequentially);
+		toggle_blockchain_flow(true);
 
 		scaleHistogramPlot();
 	} else {
@@ -3401,7 +3430,13 @@ void adiscope::Oscilloscope::onHorizScaleValueChanged(double value)
 	latter is a guessed value. If we could get a feedback from hardware that
 	the acquisition has been made and it's on the way then we can drop this
 	approach. */
-	iio->set_device_timeout((active_sample_count / active_sample_rate) * 1000 + 100);
+	if (trigger_settings.triggerMode() == TriggerSettings::TriggerMode::AUTO) {
+		iio->set_device_timeout((active_sample_count / active_sample_rate) * 1000 + 100);
+	} else {
+		// wait for the trigger. If there is a timeout set analogin block
+		// will timeout and might take a while untill work() can be called again.
+		iio->set_device_timeout(UINT_MAX);
+	}
 
 	if (started) {
 		iio->unlock();
@@ -4743,9 +4778,16 @@ void Oscilloscope::onTriggerModeChanged(int mode)
 	if (mode == 0) { // normal
 		triggerUpdater->setIdleState(CapturePlot::Waiting);
 		triggerUpdater->setInput(CapturePlot::Waiting);
+
+		// wait for the trigger. If there is a timeout set analogin block
+		// will timeout and might take a while untill work() can be called again.
+		iio->set_device_timeout(UINT_MAX);
+
 	} else if (mode == 1) { // auto
 		triggerUpdater->setIdleState(CapturePlot::Auto);
 		triggerUpdater->setInput(CapturePlot::Auto);
+
+		iio->set_device_timeout((active_sample_count / active_sample_rate) * 1000 + 100);
 	}
 }
 

@@ -31,6 +31,8 @@
 #include <gnuradio/blocks/keep_one_in_n.h>
 #include <gnuradio/blocks/vector_sink.h>
 #include <gnuradio/blocks/multiply_const.h>
+#include <gnuradio/blocks/add_blk.h>
+#include <gnuradio/blocks/null_sink.h>
 
 
 /* Qt includes */
@@ -480,6 +482,9 @@ namespace adiscope {
 		gr::m2k::digital_in_source::sptr logic_source;
 		gr::top_block_sptr logic_top_block;
 		logic_analyzer_sink::sptr logic_sink;
+		gr::blocks::short_to_float::sptr s2f;
+		gr::blocks::add_ff::sptr add;
+		gr::blocks::null_sink::sptr nullSink;
 		std::vector<QWidget *> m_mixedSignalViewMenu;
 	};
 }

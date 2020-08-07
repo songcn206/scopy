@@ -49,6 +49,8 @@ int logic_analyzer_sink_impl::work(int noutput_items,
 				   gr_vector_const_void_star &input_items,
 				   gr_vector_void_star &output_items)
 {
+	gr::thread::scoped_lock lock(d_setlock);
+
 	// space left in buffer
 	const int nfill = d_end - d_index;
 	// num items we can put in the buffer
@@ -74,10 +76,10 @@ int logic_analyzer_sink_impl::work(int noutput_items,
 
 
 	if (d_triggered && (d_index == d_end) && d_end != 0) {
-//		if (gr::high_res_timer_now() - d_last_time > d_update_time) {
+		if (gr::high_res_timer_now() - d_last_time > d_update_time) {
 			d_last_time = gr::high_res_timer_now();
 			d_logic_analyzer->setData(d_buffer_temp + d_start, d_size);
-//		}
+		}
 
 		_reset();
 	}
@@ -95,7 +97,15 @@ void logic_analyzer_sink_impl::clean_buffers()
 
 	d_buffer_size = 2 * d_size;
 
+	volk_free(d_buffer);
+	d_buffer = (uint16_t*)volk_malloc(d_buffer_size * sizeof(uint16_t), volk_get_alignment());
+	memset(d_buffer, 0, sizeof(uint16_t) * d_buffer_size);
 
+	volk_free(d_buffer_temp);
+	d_buffer_temp = (uint16_t*)volk_malloc(d_buffer_size * sizeof(uint16_t), volk_get_alignment());
+	memset(d_buffer_temp, 0, sizeof(uint16_t) * d_buffer_size);
+
+	_reset();
 }
 
 void logic_analyzer_sink_impl::set_nsamps(int newsize)
