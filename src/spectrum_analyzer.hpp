@@ -118,9 +118,7 @@ public Q_SLOTS:
 Q_SIGNALS:
 	void started(bool);
 	void showTool();
-    //measure_din plot
     void measurementsAvailable();
-    //din osc, nu trebe asta //ba cred ca da
     void selectedChannelChanged(int);
 
 private Q_SLOTS:
@@ -131,7 +129,6 @@ private Q_SLOTS:
     void on_btnMeasure_toggled(bool);
     void on_boxMeasure_toggled(bool);
 
-    //Pt masuratori!!!!!!!!!!!!!!!
     void onMeasuremetsAvailable();
     void onMeasurementActivated(int id, int chnIdx);
     void onMeasurementDeactivated(int id, int chnIdx);
@@ -215,11 +212,6 @@ private:
 	libm2k::analog::GenericAnalogIn* m_generic_analogin;
 	Ui::SpectrumAnalyzer *ui;
 
-    //debug var
-    int first_two_times;
-    int counter_ref;
-
-
     QWidget *measurePanel;
     Ui::MeasurementsPanel *measure_panel_ui;
     adiscope::MeasureSettings *measure_settings;
@@ -288,8 +280,9 @@ private:
     bool measurementsEnabled();
     void computeMeasurementsForChannel(unsigned int chnIdx, unsigned int sampleRate);
 
-    //functii normale
+    void cleanUpMeasurementsBeforeChannelRemoval(int chnIdx);
 
+    //functii normale
     void settings_panel_update(int id);
     void settings_panel_size_adjust();
     void update_measure_for_channel(int ch_idx);
