@@ -23,6 +23,10 @@
 
 #include "DisplayPlot.h"
 #include "spectrum_marker.hpp"
+#include "symbol_controller.h"
+#include "plot_line_handle.h"
+#include "handles_area.hpp"
+#include "cursor_readouts.h"
 #include <boost/shared_ptr.hpp>
 
 namespace adiscope {
@@ -47,6 +51,16 @@ namespace adiscope {
 		bool update_ui;
 		QString label;
 	};
+
+    struct cursorReadoutsTextFft {
+        QString t1;
+        QString t2;
+        QString tDelta;
+        QString freq;
+        QString v1;
+        QString v2;
+        QString vDelta;
+    };
 
 	class FftDisplayPlot : public DisplayPlot
 	{
@@ -124,6 +138,50 @@ namespace adiscope {
 		std::vector<double *> d_refXdata;
 		std::vector<double *> d_refYdata;
 
+        SymbolController *d_symbolCtrl;
+
+        HorizHandlesArea *d_bottomHandlesArea;
+        VertHandlesArea *d_rightHandlesArea;
+
+        PlotLineHandleV *d_vCursorHandle1;
+        PlotLineHandleV *d_vCursorHandle2;
+        PlotLineHandleH *d_hCursorHandle1;
+        PlotLineHandleH *d_hCursorHandle2;
+
+        int pixelPosHandleHoriz1;
+        int pixelPosHandleHoriz2;
+        int pixelPosHandleVert1;
+        int pixelPosHandleVert2;
+
+        VertBar *d_vBar1;
+        VertBar *d_vBar2;
+        HorizBar *d_hBar1;
+        HorizBar *d_hBar2;
+
+        PrefixFormatter *formatter;
+        CursorReadouts *d_cursorReadouts;
+        struct cursorReadoutsTextFft d_cursorReadoutsText;
+        bool d_cursorReadoutsVisible;
+
+        bool horizCursorsLocked;
+        bool vertCursorsLocked;
+        bool d_vertCursorsEnabled;
+        bool d_horizCursorsEnabled;
+
+        double value_v1, value_v2, value_h1, value_h2;
+
+        void setupCursors();
+        void setupReadouts();
+
+        bool vertCursorsEnabled();
+        bool horizCursorsEnabled();
+
+        //astea in db si frec
+        MetricPrefixFormatter d_cursorMetricFormatter;
+        TimePrefixFormatter d_cursorTimeFormatter;
+
+        void updateHandleAreaPadding();
+
 		void plotData(const std::vector<double *> &pts,
 				uint64_t num_points);
 		void _resetXAxisPoints();
@@ -153,6 +211,16 @@ namespace adiscope {
 		void onMrkCtrlMarkerPosChanged(std::shared_ptr<SpectrumMarker> &);
 		void onMrkCtrlMarkerReleased(std::shared_ptr<SpectrumMarker> &);
 
+    public Q_SLOTS:
+        void setHorizCursorsLocked(bool value);
+        void setVertCursorsLocked(bool value);
+        void setVertCursorsEnabled(bool en);
+        void setHorizCursorsEnabled(bool en);
+        void showEvent(QShowEvent *event);
+        void setCursorReadoutsTransparency(int value);
+        void moveCursorReadouts(CustomPlotPositionButton::ReadoutsPosition position);
+        void setCursorReadoutsVisible(bool en);
+
 	public:
 		explicit FftDisplayPlot(int nplots, QWidget *parent = nullptr);
 		~FftDisplayPlot();
@@ -174,6 +242,7 @@ namespace adiscope {
 		int64_t posAtFrequency(double freq, int chIdx = -1) const;
 		QString leftVerAxisUnit() const;
 		void setLeftVertAxisUnit(const QString& unit);
+        bool eventFilter(QObject *, QEvent *);
 
 		enum MagnitudeType magnitudeType() const;
 		void setMagnitudeType(enum MagnitudeType);
@@ -214,8 +283,10 @@ namespace adiscope {
 
 		void updateMarkerUi(uint chIdx, uint mkIdx);
 		void updateMarkersUi();
-
 		void selectMarker(uint chIdx, uint mkIdx);
+
+        void repositionCursors();
+        struct cursorReadoutsTextFft allCursorReadouts() const;
 
 		void recalculateMagnitudes();
 		void replot();
@@ -233,6 +304,8 @@ namespace adiscope {
 		void sampleCountUpdated(uint);
 		void newMarkerData();
 		void markerSelected(uint chIdx, uint mkIdx);
+        void cursorReadoutsChanged(struct cursorReadoutsTextFft);
+
 
 	public Q_SLOTS:
 		void setSampleRate(double sr, double units,
@@ -241,6 +314,16 @@ namespace adiscope {
 		void useLogFreq(bool use_log_freq);
 		void customEvent(QEvent *e);
 		bool getLogScale() const;
+
+        void onHbar1PixelPosChanged(int);
+        void onHbar2PixelPosChanged(int);
+        void onVbar1PixelPosChanged(int);
+        void onVbar2PixelPosChanged(int);
+
+        void onHCursor1Moved(double);
+        void onHCursor2Moved(double);
+        void onVCursor1Moved(double);
+        void onVCursor2Moved(double);
 	};
 }
 

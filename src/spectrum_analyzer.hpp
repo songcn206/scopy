@@ -57,6 +57,8 @@ extern "C" {
 namespace Ui {
 class SpectrumAnalyzer;
 class MeasurementsPanel;
+class CursorReadouts;
+class CursorsSettings;
 }
 
 namespace adiscope {
@@ -126,6 +128,10 @@ private Q_SLOTS:
 	void on_btnMarkers_toggled(bool checked);
     void on_btnMeasure_toggled(bool);
     void on_boxMeasure_toggled(bool);
+
+    void on_boxCursors_toggled(bool on);
+    void on_btnCursors_toggled(bool);
+    void onCursorReadoutsChanged(struct cursorReadoutsTextFft);
 
     void onMeasuremetsAvailable();
     void onMeasurementActivated(int id, int chnIdx);
@@ -210,6 +216,13 @@ private:
 	libm2k::analog::GenericAnalogIn* m_generic_analogin;
 	Ui::SpectrumAnalyzer *ui;
 
+    Ui::CursorReadouts *cursor_readouts_ui;
+    QWidget *cursorReadouts;
+    Ui::CursorsSettings *cr_ui;
+    CustomPlotPositionButton *cursorsPositionButton;
+    bool hCursorsEnabled;
+    bool vCursorsEnabled;
+
     QWidget *measurePanel;
     Ui::MeasurementsPanel *measure_panel_ui;
     adiscope::MeasureSettings *measure_settings;
@@ -267,6 +280,8 @@ private:
 	void updateMarkerMenu(unsigned int id);
 	bool isIioManagerStarted() const;
 
+    void cursor_panel_init();
+    void fillCursorReadouts(const struct cursorReadoutsTextFft&);
 
     //din capture plot
     QList<std::shared_ptr<MeasurementData>> measurements(int chnIdx);

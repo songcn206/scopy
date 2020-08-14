@@ -60,6 +60,8 @@
 #include "ui_spectrum_analyzer.h"
 #include "ui_measure_panel.h"
 #include "ui_measure_settings.h"
+#include "ui_cursors_settings.h"
+#include "ui_cursor_readouts.h"
 
 #include <boost/make_shared.hpp>
 #include <iio.h>
@@ -134,6 +136,8 @@ SpectrumAnalyzer::SpectrumAnalyzer(struct iio_context *ctx, Filter *filt,
 	crt_peak(0),
 	max_peak_count(10),
 	fft_size(32768),
+    hCursorsEnabled(true),
+    vCursorsEnabled(true),
 	searchVisiblePeaks(true),
 	m_max_sample_rate(100e6),
 	sample_rate_divider(1),
@@ -208,10 +212,8 @@ SpectrumAnalyzer::SpectrumAnalyzer(struct iio_context *ctx, Filter *filt,
 	settings_group->addButton(ui->btnMarkers);
 	settings_group->addButton(ui->btnAddRef);
     settings_group->addButton(ui->btnMeasure);
+    settings_group->addButton(ui->btnCursors);
 	settings_group->setExclusive(true);
-
-    /* Measure panel */
-    measure_panel_init();
 
     fft_plot = new FftDisplayPlot(m_adc_nb_channels, this);
 	fft_plot->canvas()->setStyleSheet(QString("QwtPlotCanvas { "
@@ -220,6 +222,9 @@ SpectrumAnalyzer::SpectrumAnalyzer(struct iio_context *ctx, Filter *filt,
 	fft_plot->setAxisScale(QwtPlot::yLeft, -200, 0, 10);
 	// Disable mouse interactions with the axes until they are in a working state
 	fft_plot->setXaxisMouseGesturesEnabled(false);
+
+    /* Measure panel */
+    measure_panel_init();
 
 	for (uint i = 0; i < m_adc_nb_channels; i++) {
         ui->gridLayoutPlot->addWidget(measurePanel, 0, 1, 1, 1);
@@ -391,6 +396,8 @@ SpectrumAnalyzer::SpectrumAnalyzer(struct iio_context *ctx, Filter *filt,
 	        SLOT(onTopValueChanged(double)));
 	connect(range, SIGNAL(valueChanged(double)),
 	        SLOT(onRangeValueChanged(double)));
+
+    cursor_panel_init();
 
 	// UI default
 	ui->comboBox_window->setCurrentText("Hamming");
@@ -596,6 +603,9 @@ SpectrumAnalyzer::~SpectrumAnalyzer()
 		delete[] fft_ids;
 	}
 
+    delete measure_panel_ui;
+    delete cr_ui;
+    //delete cursor_readouts_ui;
 	delete ui;
 }
 
@@ -739,8 +749,10 @@ void SpectrumAnalyzer::toggleRightMenu(CustomPushButton *btn, bool checked)
 		} else if (btn == ui->btnAddRef) {
 			index = 4;
         }  else if (btn == ui->btnMeasure) {
-              index = 5;
-        }
+            index = 5;
+        } else if (btn == ui->btnCursors) {
+            index = 7;
+      }
 	}
 
 	if (id != -1) {
@@ -810,6 +822,68 @@ void SpectrumAnalyzer::on_btnMarkers_toggled(bool checked)
 		static_cast<CustomPushButton *>(QObject::sender()), checked);
 }
 
+void SpectrumAnalyzer::on_btnCursors_toggled(bool checked)
+{
+    triggerRightMenuToggle(
+        static_cast<CustomPushButton *>(QObject::sender()), checked);
+}
+
+void SpectrumAnalyzer::on_boxCursors_toggled(bool on)
+{
+    fft_plot->setHorizCursorsEnabled(
+            on ? cr_ui->vCursorsEnable->isChecked() : false);
+    fft_plot->setVertCursorsEnabled(
+            on ? cr_ui->hCursorsEnable->isChecked() : false);
+
+    if (on) {
+        fft_plot->setCursorReadoutsVisible(!ui->boxMeasure->isChecked());
+    } else {
+        if (ui->btnCursors->isChecked())
+            ui->btnCursors->setChecked(false);
+
+        menuOrder.removeOne(ui->btnCursors);
+    }
+
+    measure_panel_ui->cursorReadouts->setVisible(on);
+}
+
+void SpectrumAnalyzer::cursor_panel_init()
+{
+    cr_ui = new Ui::CursorsSettings;
+    cr_ui->setupUi(ui->cursorsSettings);
+    cr_ui->btnNormalTrack->hide();
+    setDynamicProperty(cr_ui->btnLockHorizontal, "use_icon", true);
+    setDynamicProperty(cr_ui->btnLockVertical, "use_icon", true);
+
+    connect(cr_ui->btnLockHorizontal, &QPushButton::toggled,
+        fft_plot, &FftDisplayPlot::setHorizCursorsLocked);
+    connect(cr_ui->btnLockVertical, &QPushButton::toggled,
+        fft_plot, &FftDisplayPlot::setVertCursorsLocked);
+
+    cursorsPositionButton = new CustomPlotPositionButton(cr_ui->posSelect);
+
+    connect(cr_ui->hCursorsEnable, SIGNAL(toggled(bool)),
+        fft_plot, SLOT(setVertCursorsEnabled(bool)));
+    connect(cr_ui->vCursorsEnable, SIGNAL(toggled(bool)),
+        fft_plot, SLOT(setHorizCursorsEnabled(bool)));
+
+    cr_ui->horizontalSlider->setMaximum(100);
+    cr_ui->horizontalSlider->setMinimum(0);
+    cr_ui->horizontalSlider->setSingleStep(1);
+
+    connect(cr_ui->horizontalSlider, &QSlider::valueChanged, [=](int value){
+        cr_ui->transLabel->setText(tr("Transparency ") + QString::number(value) + "%");
+        fft_plot->setCursorReadoutsTransparency(value);
+    });
+    cr_ui->horizontalSlider->setSliderPosition(0);
+
+    connect(cursorsPositionButton, &CustomPlotPositionButton::positionChanged,
+        [=](CustomPlotPositionButton::ReadoutsPosition position){
+        fft_plot->moveCursorReadouts(position);
+    });
+
+}
+
 void SpectrumAnalyzer::on_btnMeasure_toggled(bool checked) {
     triggerRightMenuToggle(static_cast<CustomPushButton *>(QObject::sender()),
                            checked);
@@ -841,6 +915,9 @@ void SpectrumAnalyzer::measure_settings_init()
     connect(ui->boxMeasure, SIGNAL(toggled(bool)),
          SLOT(setMeasuremensEnabled(bool)));
 
+    connect(ui->boxMeasure, &QCheckBox::toggled, [=](bool on){
+        cr_ui->readoutsWidget->setVisible(!on);
+    });
 }
 
 void SpectrumAnalyzer::onChannelAdded(int chnIdx)
@@ -903,6 +980,67 @@ void SpectrumAnalyzer::measure_panel_init() {
     connect(this, SIGNAL(measurementsAvailable()),
             SLOT(onMeasuremetsAvailable()));
 
+    //cursor readouts
+    cursorReadouts = new QWidget(measure_panel_ui->cursorReadouts);
+    cursor_readouts_ui = new Ui::CursorReadouts();
+    cursor_readouts_ui->setupUi(cursorReadouts);
+
+    cursor_readouts_ui->TimeCursors->setStyleSheet("QWidget {"
+        "background-color: transparent;"
+        "color: white;}");
+    cursor_readouts_ui->VoltageCursors->setStyleSheet("QWidget {"
+        "background-color: transparent;"
+        "color: white;}");
+
+    // Avoid labels jumping around to left or right by imposing a min width
+    QLabel *label = new QLabel(this);
+    label->setStyleSheet("font-size: 14px");
+    label->setText("-999.999 dB");
+    double minWidth = label->minimumSizeHint().width();
+    cursor_readouts_ui->cursorT1->setMinimumWidth(minWidth);
+    cursor_readouts_ui->cursorT1label->setText("F1=");
+    cursor_readouts_ui->cursorT2->setMinimumWidth(minWidth);
+    cursor_readouts_ui->cursorT2label->setText("F2=");
+    cursor_readouts_ui->timeDelta->hide();
+    cursor_readouts_ui->timeDeltaLabel->hide();
+    label->setText("-999.999 Hz");
+    minWidth = label->minimumSizeHint().width();
+    cursor_readouts_ui->frequencyDelta->hide();
+    cursor_readouts_ui->frequencyDeltaLabel->hide();
+    cursor_readouts_ui->cursorV1->setMinimumWidth(minWidth);
+    cursor_readouts_ui->cursorV1label->setText("Mag1= ");
+    cursor_readouts_ui->cursorV2->setMinimumWidth(minWidth);
+    cursor_readouts_ui->cursorV2label->setText("Mag2= ");
+    cursor_readouts_ui->voltageDelta->setMinimumWidth(minWidth);
+    cursor_readouts_ui->deltaVlabel->setText("ΔMag= ");
+    measure_panel_ui->scrollArea->setMinimumHeight(label->height() * 4);
+
+    delete label;
+
+    QHBoxLayout *hLayout = static_cast<QHBoxLayout *>(
+        measure_panel_ui->cursorReadouts->layout());
+    if (hLayout)
+        hLayout->insertWidget(0, cursorReadouts);
+
+    fillCursorReadouts(fft_plot->allCursorReadouts());
+    measure_panel_ui->cursorReadouts->hide();
+
+}
+
+void SpectrumAnalyzer::onCursorReadoutsChanged(struct cursorReadoutsTextFft data)
+{
+    fillCursorReadouts(data);
+}
+
+void SpectrumAnalyzer::fillCursorReadouts(const struct cursorReadoutsTextFft& data)
+{
+    cursor_readouts_ui->cursorT1->setText(data.t1);
+    cursor_readouts_ui->cursorT2->setText(data.t2);
+    cursor_readouts_ui->timeDelta->setText(data.tDelta);
+    cursor_readouts_ui->frequencyDelta->setText(data.freq);
+    cursor_readouts_ui->cursorV1->setText(data.v1);
+    cursor_readouts_ui->cursorV2->setText(data.v2);
+    cursor_readouts_ui->voltageDelta->setText(data.vDelta);
 }
 
 void SpectrumAnalyzer::init_selected_measurements(int chnIdx,
@@ -1199,6 +1337,9 @@ void SpectrumAnalyzer::on_boxMeasure_toggled(bool checked) {
     menuOrder.removeOne(ui->btnMeasure);
   }
   measurePanel->setVisible(checked);
+
+  if (ui->boxCursors->isChecked())
+      fft_plot->setCursorReadoutsVisible(!checked);
 }
 
 void SpectrumAnalyzer::on_btnAddRef_toggled(bool checked)

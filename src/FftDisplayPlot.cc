@@ -152,6 +152,27 @@ FftDisplayPlot::FftDisplayPlot(int nplots, QWidget *parent) :
 	setMaxYaxisDivision(100); // A maximum division of 100 dB
 	setVertUnitsPerDiv(20);
 	setVertOffset(-VertUnitsPerDiv() * 5);
+
+
+    d_symbolCtrl = new SymbolController(this);
+
+    d_bottomHandlesArea = new HorizHandlesArea(this->canvas());
+    d_rightHandlesArea = new VertHandlesArea(this->canvas());
+
+    d_bottomHandlesArea->setMinimumHeight(50);
+    d_rightHandlesArea->setMinimumWidth(50);
+
+    d_bottomHandlesArea->setLargestChildWidth(60);
+    d_rightHandlesArea->setLargestChildHeight(60);
+
+    d_rightHandlesArea->setMinimumHeight(this->minimumHeight());
+
+    formatter = static_cast<PrefixFormatter *>(new MetricPrefixFormatter);
+
+    setupCursors();
+    setupReadouts();
+
+    installEventFilter(this);
 }
 
 FftDisplayPlot::~FftDisplayPlot()
@@ -178,6 +199,395 @@ FftDisplayPlot::~FftDisplayPlot()
 	}
 	d_refXdata.clear();
 	d_refYdata.clear();
+    removeEventFilter(this);
+    canvas()->removeEventFilter(d_cursorReadouts);
+    canvas()->removeEventFilter(d_symbolCtrl);
+}
+
+void FftDisplayPlot::setupCursors()
+{
+    /* Measurement Cursors */
+    d_vCursorHandle1 = new PlotLineHandleV(
+                QPixmap(":/icons/v_cursor_handle.svg"),
+                d_rightHandlesArea);
+    d_vCursorHandle2 = new PlotLineHandleV(
+                QPixmap(":/icons/v_cursor_handle.svg"),
+                d_rightHandlesArea);
+    d_hCursorHandle1 = new PlotLineHandleH(
+                QPixmap(":/icons/h_cursor_handle.svg"),
+                d_bottomHandlesArea);
+    d_hCursorHandle2 = new PlotLineHandleH(
+                QPixmap(":/icons/h_cursor_handle.svg"),
+                d_bottomHandlesArea);
+
+    d_vBar1 = new VertBar(this,true);
+    d_vBar2 = new VertBar(this,true);
+    d_hBar1 = new HorizBar(this, true);
+    d_hBar2 = new HorizBar(this, true);
+
+    d_symbolCtrl->attachSymbol(d_vBar1);
+    d_symbolCtrl->attachSymbol(d_vBar2);
+    d_symbolCtrl->attachSymbol(d_hBar1);
+    d_symbolCtrl->attachSymbol(d_hBar2);
+
+    QPen cursorsLinePen = QPen(QColor(155, 155, 155), 1, Qt::DashLine);
+    d_hBar1->setPen(cursorsLinePen);
+    d_hBar2->setPen(cursorsLinePen);
+    d_vBar1->setPen(cursorsLinePen);
+    d_vBar2->setPen(cursorsLinePen);
+
+    d_vCursorHandle1->setPen(cursorsLinePen);
+    d_vCursorHandle2->setPen(cursorsLinePen);
+    d_hCursorHandle1->setPen(cursorsLinePen);
+    d_hCursorHandle2->setPen(cursorsLinePen);
+
+    d_vCursorHandle1->hide();
+    d_vCursorHandle2->hide();
+    d_hCursorHandle1->hide();
+    d_hCursorHandle2->hide();
+
+    d_vBar1->setVisible(false);
+    d_vBar2->setVisible(false);
+    d_hBar1->setVisible(false);
+    d_hBar2->setVisible(false);
+
+    /* Set initial values for cursors */
+    double frecvPerDiv = VertUnitsPerDiv(activeVertAxis());
+    double dbPerDiv = HorizUnitsPerDiv();
+
+    /* When a handle position changes the bar follows */
+    connect(d_vCursorHandle1, &PlotLineHandleV::positionChanged,
+        [=](int value) {      
+        if (vertCursorsLocked) {
+            int position2 = value - (pixelPosHandleVert1 - pixelPosHandleVert2);
+            pixelPosHandleVert2 = position2;
+            d_hBar2->setPixelPosition(position2);
+        }
+        pixelPosHandleVert1 = value;
+        d_hBar1->setPixelPosition(value);
+    });
+    connect(d_vCursorHandle2, &PlotLineHandleV::positionChanged,
+        [=](int value) {   
+        if (vertCursorsLocked) {
+            int position1 = value + (pixelPosHandleVert1 - pixelPosHandleVert2);
+            pixelPosHandleVert1 = position1;
+            d_hBar1->setPixelPosition(position1);
+        }
+        pixelPosHandleVert2 = value;
+        d_hBar2->setPixelPosition(value);
+    });
+
+    connect(d_hCursorHandle1, &PlotLineHandleH::positionChanged,
+        [=](int value) {
+        if (horizCursorsLocked) {
+            int position2 = value - (pixelPosHandleHoriz1 - pixelPosHandleHoriz2);
+            pixelPosHandleHoriz2 = position2;
+            d_vBar2->setPixelPosition(position2);
+        }
+        pixelPosHandleHoriz1 = value;
+        d_vBar1->setPixelPosition(value);
+    });
+    connect(d_hCursorHandle2, &PlotLineHandleH::positionChanged,
+        [=](int value) {
+        if (horizCursorsLocked) {
+            int position1 = value + (pixelPosHandleHoriz1 - pixelPosHandleHoriz2);
+            pixelPosHandleHoriz1 = position1;
+            d_vBar1->setPixelPosition(position1);
+        }
+        pixelPosHandleHoriz2 = value;
+        d_vBar2->setPixelPosition(value);
+    });
+
+    d_hBar1->setPosition(0);
+    d_hBar2->setPosition(-800);
+    d_vBar1->setPosition(0);
+    d_vBar2->setPosition(500);
+
+    connect(d_hBar1, SIGNAL(pixelPositionChanged(int)),
+            SLOT(onHbar1PixelPosChanged(int)));
+    connect(d_hBar2, SIGNAL(pixelPositionChanged(int)),
+            SLOT(onHbar2PixelPosChanged(int)));
+    connect(d_vBar1, SIGNAL(pixelPositionChanged(int)),
+            SLOT(onVbar1PixelPosChanged(int)));
+    connect(d_vBar2, SIGNAL(pixelPositionChanged(int)),
+            SLOT(onVbar2PixelPosChanged(int)));
+
+}
+
+void FftDisplayPlot::setupReadouts()
+{
+    d_cursorReadouts = new CursorReadouts(this);
+    d_cursorReadouts->setTopLeftStartingPoint(QPoint(8, 8));
+    d_cursorReadouts->setTimeReadoutVisible(false);
+    d_cursorReadouts->setVoltageReadoutVisible(false);
+
+    d_cursorReadouts->setTimeCursor1LabelText("F1= ");
+    d_cursorReadouts->setTimeCursor2LabelText("F2= ");
+    d_cursorReadouts->setTimeDeltaText("ΔF= ");
+    d_cursorReadouts->setVoltageCursor1LabelText("Mag1= ");
+    d_cursorReadouts->setVoltageCursor2LabelText("Mag2= ");
+    d_cursorReadouts->setDeltaVoltageLabelText("ΔMag= ");
+
+    d_cursorReadouts->setFrequencyDeltaVisible(false);
+    d_cursorReadouts->setTimeDeltaVisible(false);
+
+    /* Update Cursor Readouts */
+    onVCursor1Moved(d_hBar1->plotCoord().y());
+    onVCursor2Moved(d_hBar2->plotCoord().y());
+    onHCursor1Moved(d_vBar1->plotCoord().x());
+    onHCursor2Moved(d_vBar2->plotCoord().x());
+
+    connect(d_vBar1, SIGNAL(positionChanged(double)),
+            SLOT(onHCursor1Moved(double)));
+    connect(d_vBar2, SIGNAL(positionChanged(double)),
+            SLOT(onHCursor2Moved(double)));
+    connect(d_hBar1, SIGNAL(positionChanged(double)),
+            SLOT(onVCursor1Moved(double)));
+    connect(d_hBar2, SIGNAL(positionChanged(double)),
+            SLOT(onVCursor2Moved(double)));
+
+}
+
+bool FftDisplayPlot::eventFilter(QObject *object, QEvent *event)
+{
+    if (object == canvas() && event->type() == QEvent::Resize) {
+        updateHandleAreaPadding();
+
+        //force cursor handles to emit position changed
+        //when the plot canvas is being resized
+        d_hCursorHandle1->triggerMove();
+        d_hCursorHandle2->triggerMove();
+        d_vCursorHandle1->triggerMove();
+        d_vCursorHandle2->triggerMove();
+
+    }
+    return QObject::eventFilter(object, event);
+}
+
+void FftDisplayPlot::updateHandleAreaPadding()
+{
+    double xAxisBonusWidth = 0.0;
+
+    if (axisEnabled(QwtPlot::xBottom)) {
+        if (!axisEnabled(QwtPlot::yLeft)) {
+            xAxisBonusWidth = 65.0;
+        }
+    }
+
+    if (d_bottomHandlesArea->leftPadding() != 50 + xAxisBonusWidth)
+        d_bottomHandlesArea->setLeftPadding(50 + xAxisBonusWidth);
+    if (d_bottomHandlesArea->rightPadding() != 50 + xAxisBonusWidth)
+        d_bottomHandlesArea->setRightPadding(50 + xAxisBonusWidth);
+    if (d_rightHandlesArea->topPadding() != 50)
+        d_rightHandlesArea->setTopPadding(50);
+    if (d_rightHandlesArea->bottomPadding() != 50)
+        d_rightHandlesArea->setBottomPadding(50);
+
+    d_rightHandlesArea->setTopPadding(50);
+
+    //update handle position to avoid cursors getting out of the plot bounds when changing the padding;
+    d_hCursorHandle1->updatePosition();
+    d_hCursorHandle2->updatePosition();
+
+    d_vCursorHandle1->updatePosition();
+    d_vCursorHandle2->updatePosition();
+}
+
+void FftDisplayPlot::setHorizCursorsLocked(bool value)
+{
+    horizCursorsLocked = value;
+}
+
+void FftDisplayPlot::setVertCursorsLocked(bool value)
+{
+    vertCursorsLocked = value;
+}
+
+void FftDisplayPlot::showEvent(QShowEvent *event)
+{
+    d_vCursorHandle1->triggerMove();
+    d_vCursorHandle2->triggerMove();
+    d_hCursorHandle1->triggerMove();
+    d_hCursorHandle2->triggerMove();
+}
+
+void FftDisplayPlot::setVertCursorsEnabled(bool en)
+{
+    if (d_vertCursorsEnabled != en) {
+        d_vertCursorsEnabled = en;
+        d_vBar1->setVisible(en);
+        d_vBar2->setVisible(en);
+        d_hCursorHandle1->setVisible(en);
+        d_hCursorHandle2->setVisible(en);
+        d_cursorReadouts->setTimeReadoutVisible(en &&
+            d_cursorReadoutsVisible);
+    }
+}
+
+bool FftDisplayPlot::vertCursorsEnabled()
+{
+    return d_vertCursorsEnabled;
+}
+
+void FftDisplayPlot::setHorizCursorsEnabled(bool en)
+{
+    if (d_horizCursorsEnabled != en) {
+        d_horizCursorsEnabled = en;
+        d_hBar1->setVisible(en);
+        d_hBar2->setVisible(en);
+        d_vCursorHandle1->setVisible(en);
+        d_vCursorHandle2->setVisible(en);
+        d_cursorReadouts->setVoltageReadoutVisible(en &&
+            d_cursorReadoutsVisible);
+    }
+}
+
+bool FftDisplayPlot::horizCursorsEnabled()
+{
+    return d_horizCursorsEnabled;
+}
+
+void FftDisplayPlot::setCursorReadoutsVisible(bool en)
+{
+    if (d_cursorReadoutsVisible != en) {
+        d_cursorReadoutsVisible = en;
+        d_cursorReadouts->setVoltageReadoutVisible(en &&
+            d_vertCursorsEnabled);
+        d_cursorReadouts->setTimeReadoutVisible(en &&
+            d_horizCursorsEnabled);
+    }
+}
+
+void FftDisplayPlot::onHCursor1Moved(double value)
+{
+    QString text;
+
+    text = formatter->format(value, "dB", 3);
+    d_cursorReadouts->setTimeCursor1Text(text);
+    d_cursorReadoutsText.t1 = text;
+
+    double diff = value - d_vBar2->plotCoord().x();
+    text = formatter->format(diff, "db", 3);
+    d_cursorReadouts->setTimeDeltaText(text);
+    d_cursorReadoutsText.tDelta = text;
+
+    if (diff !=0 )
+        text = formatter->format(1 / diff, "Hz", 3);
+    else
+        text = "Infinity";
+    d_cursorReadouts->setFreqDeltaText(text);
+    d_cursorReadoutsText.freq = text;
+
+    value_v1 = value;
+    Q_EMIT cursorReadoutsChanged(d_cursorReadoutsText);
+}
+
+void FftDisplayPlot::onHCursor2Moved(double value)
+{
+    QString text;
+
+    text = formatter->format(value, "dB", 3);
+    d_cursorReadouts->setTimeCursor2Text(text);
+    d_cursorReadoutsText.t2 = text;
+
+    double diff = d_vBar1->plotCoord().x() - value;
+    text = formatter->format(diff, "dB", 3);
+    d_cursorReadouts->setTimeDeltaText(text);
+    d_cursorReadoutsText.tDelta = text;
+
+    if (diff !=0 )
+        text = formatter->format(1 / diff, "Hz", 3);
+    else
+        text = "Infinity";
+    d_cursorReadouts->setFreqDeltaText(text);
+    d_cursorReadoutsText.freq = text;
+
+    value_v2 = value;
+    Q_EMIT cursorReadoutsChanged(d_cursorReadoutsText);
+}
+
+void FftDisplayPlot::onVCursor1Moved(double value)
+{
+    QString text;
+    bool error = false;
+
+    value *= d_displayScale;
+    text = formatter->format(value, "Hz", 3);
+    d_cursorReadouts->setVoltageCursor1Text(error ? "-" : text);
+    d_cursorReadoutsText.v1 = error ? "-" : text;
+
+    double valueCursor2 = d_hBar2->plotCoord().y();
+
+    double diff = value - (valueCursor2 * d_displayScale) ;
+    text = formatter->format(diff, "Hz", 3);
+    d_cursorReadouts->setVoltageDeltaText(error ? "-" : text);
+    d_cursorReadoutsText.vDelta = error ? "-" : text;
+
+    value_h1 = value;
+    Q_EMIT cursorReadoutsChanged(d_cursorReadoutsText);
+}
+
+void FftDisplayPlot::onVCursor2Moved(double value)
+{
+    QString text;
+    bool error = false;
+
+    value *= d_displayScale;
+    text = formatter->format(value, "Hz", 3);
+    d_cursorReadouts->setVoltageCursor2Text(error ? "-" : text);
+    d_cursorReadoutsText.v2 = error ? "-" : text;
+
+    double valueCursor1 = d_hBar1->plotCoord().y();
+
+    double diff = (valueCursor1 * d_displayScale) - value;
+    text = formatter->format(diff, "Hz", 3);
+    d_cursorReadouts->setVoltageDeltaText(error ? "-" : text);
+    d_cursorReadoutsText.vDelta = error ? "-" : text;
+
+    value_h2 = value;
+    Q_EMIT cursorReadoutsChanged(d_cursorReadoutsText);
+}
+
+void FftDisplayPlot::onHbar1PixelPosChanged(int pos)
+{
+    d_vCursorHandle1->setPositionSilenty(pos);
+}
+
+void FftDisplayPlot::onHbar2PixelPosChanged(int pos)
+{
+    d_vCursorHandle2->setPositionSilenty(pos);
+}
+
+void FftDisplayPlot::onVbar1PixelPosChanged(int pos)
+{
+    d_hCursorHandle1->setPositionSilenty(pos);
+}
+
+void FftDisplayPlot::onVbar2PixelPosChanged(int pos)
+{
+    d_hCursorHandle2->setPositionSilenty(pos);
+}
+
+void FftDisplayPlot::repositionCursors()
+{
+    //onTimeCursor1Moved(d_vBar1->plotCoord().x());
+   // onTimeCursor2Moved(d_vBar2->plotCoord().x());
+   // displayIntersection();
+}
+
+struct cursorReadoutsTextFft FftDisplayPlot::allCursorReadouts() const
+{
+    return d_cursorReadoutsText;
+}
+
+void FftDisplayPlot::setCursorReadoutsTransparency(int value)
+{
+    d_cursorReadouts->setTransparency(value);
+}
+
+void FftDisplayPlot::moveCursorReadouts(CustomPlotPositionButton::ReadoutsPosition position)
+{
+    d_cursorReadouts->moveToPosition(position);
 }
 
 void FftDisplayPlot::initChannelMeasurement(int nplots) {
