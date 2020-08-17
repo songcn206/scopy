@@ -619,7 +619,7 @@ void TriggerSettings::writeHwMode(int mode)
 		}
 		catch (std::exception& e)
 		{
-			qDebug() << e.what();
+			qDebug() << "Problem!: " << e.what();
 		}
 	}
 }

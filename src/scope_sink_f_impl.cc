@@ -388,7 +388,8 @@ namespace adiscope {
                                                                                         nItemsToSend,
                                                                                         d_tags,
                                                                                         d_name));
-                      }
+		      std::cout << "Displaying buffer scope sink f" << std::endl;
+		      }
               }
 
               // We've plotting, so reset the state

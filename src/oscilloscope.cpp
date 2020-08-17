@@ -94,7 +94,7 @@ Oscilloscope::Oscilloscope(struct iio_context *ctx, Filter *filt,
 			   ToolMenuItem *toolMenuItem,
 			   QJSEngine *engine, ToolLauncher *parent) :
 	Tool(ctx, toolMenuItem, new Oscilloscope_API(this), "Oscilloscope", parent),
-	m_m2k_context(m2kOpen(ctx, "usb:1.10.5")),
+	m_m2k_context(m2kOpen(ctx, "")),
 	m_m2k_analogin(m_m2k_context->getAnalogIn()),
 	m_m2k_digital(m_m2k_context->getDigital()),
 	nb_channels(m_m2k_analogin->getNbChannels()),
@@ -1298,6 +1298,7 @@ void Oscilloscope::enableMixedSignalView()
 								 0 /*not used*/,
 								 active_sample_rate,
 								 64,
+								 false,
 								 false);
 
 
@@ -1319,6 +1320,8 @@ void Oscilloscope::enableMixedSignalView()
 	iio->connect(s2f, 0, add, 0);
 	iio->connect(block, 0, add, 1);
 	iio->connect(add, 0, nullSink, 0);
+
+//	m_m2k_context->startMixedSignalAcquisition(active_sample_count);
 }
 
 void Oscilloscope::disableMixedSignalView()
@@ -2604,6 +2607,8 @@ void Oscilloscope::toggle_blockchain_flow(bool en)
 
 			// start mixed signal acquisition
 //			m_m2k_analogin->cancelAcquisition();
+//			m_m2k_analogin->stopAcquisition();
+//			m_m2k_context->stopMixedSignalAcquisition();
 			m_m2k_context->startMixedSignalAcquisition(active_sample_count);
 		}
 
@@ -3430,13 +3435,13 @@ void adiscope::Oscilloscope::onHorizScaleValueChanged(double value)
 	latter is a guessed value. If we could get a feedback from hardware that
 	the acquisition has been made and it's on the way then we can drop this
 	approach. */
-	if (trigger_settings.triggerMode() == TriggerSettings::TriggerMode::AUTO) {
+//	de::AUTO) {
 		iio->set_device_timeout((active_sample_count / active_sample_rate) * 1000 + 100);
-	} else {
-		// wait for the trigger. If there is a timeout set analogin block
-		// will timeout and might take a while untill work() can be called again.
-		iio->set_device_timeout(UINT_MAX);
-	}
+//	} else {
+//		// wait for the trigger. If there is a timeout set analogin block
+//		// will timeout and might take a while untill work() can be called again.
+//		iio->set_device_timeout(UINT_MAX);
+//	}
 
 	if (started) {
 		iio->unlock();
@@ -4781,14 +4786,14 @@ void Oscilloscope::onTriggerModeChanged(int mode)
 
 		// wait for the trigger. If there is a timeout set analogin block
 		// will timeout and might take a while untill work() can be called again.
-		iio->set_device_timeout(UINT_MAX);
+//		iio->set_device_timeout(UINT_MAX);
 
 	} else if (mode == 1) { // auto
 		triggerUpdater->setIdleState(CapturePlot::Auto);
 		triggerUpdater->setInput(CapturePlot::Auto);
-
-		iio->set_device_timeout((active_sample_count / active_sample_rate) * 1000 + 100);
 	}
+
+	iio->set_device_timeout((active_sample_count / active_sample_rate) * 1000 + 100);
 }
 
 void Oscilloscope::updateBufferPreviewer()

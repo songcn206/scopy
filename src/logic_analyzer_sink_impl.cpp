@@ -6,6 +6,9 @@
 
 #include <iostream>
 
+#include "counting_semaphore.h"
+#include "barrier.h"
+
 using namespace gr;
 
 logic_analyzer_sink::sptr logic_analyzer_sink::make(adiscope::logic::LogicAnalyzer *logicAnalyzer,
@@ -79,7 +82,10 @@ int logic_analyzer_sink_impl::work(int noutput_items,
 		if (gr::high_res_timer_now() - d_last_time > d_update_time) {
 			d_last_time = gr::high_res_timer_now();
 			d_logic_analyzer->setData(d_buffer_temp + d_start, d_size);
+			std::cout << "Displaying buffer logic analyzer sink" << std::endl;
 		}
+
+		adiscope::Barrier sema(3);
 
 		_reset();
 	}

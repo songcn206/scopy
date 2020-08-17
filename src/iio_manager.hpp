@@ -33,6 +33,7 @@
 #include <libm2k/contextbuilder.hpp>
 #include <libm2k/m2k.hpp>
 #include <libm2k/analog/m2kanalogin.hpp>
+#include <libm2k/digital/m2kdigital.hpp>
 
 #include <mutex>
 
@@ -104,10 +105,19 @@ namespace adiscope {
 			gr::top_block::stop();
 			// cancel acquisition, work might be blocked waiting for a trigger
 			// and the timeout. Don't wait for it just cancel the acquisition
-			m_analogin->cancelAcquisition();
+//			m_analogin->cancelAcquisition();
+//			m_analogin->stopAcquisition();
+//			m_context->stopMixedSignalAcquisition();
+//			m_analogin->cancelAcquisition();
+//			m_context->getDigital()->cancelAcquisition();
+
+//			m_context->stopMixedSignalAcquisition();
+
 			gr::top_block::wait();
 		}
-		void unlock() { gr::top_block::start(); }
+		void unlock() {
+//			m_context->startMixedSignalAcquisition(buffer_size);
+			gr::top_block::start(); }
 
 		/* Set the timeout for the source device */
 		void set_device_timeout(unsigned int mseconds);
@@ -116,6 +126,7 @@ namespace adiscope {
 
 	private:
 		libm2k::analog::M2kAnalogIn *m_analogin;
+		libm2k::context::M2k *m_context;
 
 		static std::map<const std::string, map_entry> dev_map;
 		static unsigned _id;

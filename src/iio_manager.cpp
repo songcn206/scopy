@@ -41,7 +41,8 @@ iio_manager::iio_manager(unsigned int block_id,
 	QObject(nullptr),
 	top_block("IIO Manager " + std::to_string(block_id)),
 	id(block_id), _started(false), buffer_size(_buffer_size),
-	m_analogin(libm2k::context::m2kOpen(ctx, "")->getAnalogIn())
+	m_analogin(libm2k::context::m2kOpen(ctx, "")->getAnalogIn()),
+	m_context(libm2k::context::m2kOpen(ctx, ""))
 {
 	if (!ctx)
 		throw std::runtime_error("IIO context not created");
@@ -74,7 +75,6 @@ iio_manager::iio_manager(unsigned int block_id,
 							     0,
 							     {0, 0},
 							     false,
-							     200,
 							     false);
 
 	/* Avoid unconnected channel errors by connecting a dummy sink */
@@ -255,6 +255,7 @@ void iio_manager::stop(iio_manager::port_id copy)
 	if (!inuse) {
 		qDebug(CAT_IIO_MANAGER) << "Stopping top block";
 		top_block::stop();
+		m_analogin->cancelAcquisition();
 		top_block::wait();
 
 		_started = false;
