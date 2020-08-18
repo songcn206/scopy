@@ -26,6 +26,10 @@
 #include <QTimer>
 #include <QtConcurrentRun>
 
+#include <libm2k/m2k.hpp>
+#include <libm2k/contextbuilder.hpp>
+#include "libm2k/analog/dmm.hpp"
+
 using namespace std;
 using namespace adiscope;
 

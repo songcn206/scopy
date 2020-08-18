@@ -1453,7 +1453,7 @@ void SignalGenerator::stop()
 		buffers.clear();
 		m_running = false;
 		m_m2k_analogout->stop();
-	} catch (m2k_exception &e) {
+	} catch (libm2k::m2k_exception &e) {
 		qDebug(CAT_SIGNAL_GENERATOR) << e.what();
 	}
 }

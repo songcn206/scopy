@@ -50,7 +50,7 @@ double adc_sample_conv::conversionWrapper(unsigned int chn_idx, double sample, b
 		} else {
 			return m2k_adc->convertVoltsToRaw(chn_idx, sample);
 		}
-	} catch (m2k_exception &e) {
+	} catch (libm2k::m2k_exception &e) {
 		return 0;
 	}
 }

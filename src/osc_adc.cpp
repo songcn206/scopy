@@ -237,7 +237,7 @@ M2kAdc::M2kAdc(struct iio_context *ctx, struct iio_device *adc_dev):
 		"m2k-adc-trigger");
 	try {
 		m_trigger = std::make_shared<HardwareTrigger>(m2k_trigger);
-	} catch (m2k_exception& e){
+	} catch (libm2k::m2k_exception& e){
 		qDebug() << "Disabling hardware trigger support." << e.what();
 	}
 

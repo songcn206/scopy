@@ -188,7 +188,7 @@ Oscilloscope::Oscilloscope(struct iio_context *ctx, Filter *filt,
 	this->qt_time_block->set_trigger_mode(TRIG_MODE_TAG, 0, "buffer_start");
 
 	// Prevent the application from hanging while waiting for a trigger condition
-//	m_m2k_context->setTimeout(UINT_MAX);
+	m_m2k_context->setTimeout(UINT_MAX);
 
 	plot.registerSink(qt_time_block->name(), nb_channels, 0);
 	plot.disableLegend();
@@ -3432,17 +3432,9 @@ void adiscope::Oscilloscope::onHorizScaleValueChanged(double value)
 		setDigitalPlotCurvesParams();
 	}
 
-	/* timeout = how long a buffer capture takes + transmission latency. The
-	latter is a guessed value. If we could get a feedback from hardware that
-	the acquisition has been made and it's on the way then we can drop this
-	approach. */
-//	de::AUTO) {
-		iio->set_device_timeout((active_sample_count / active_sample_rate) * 1000 + 100);
-//	} else {
-//		// wait for the trigger. If there is a timeout set analogin block
-//		// will timeout and might take a while untill work() can be called again.
-//		iio->set_device_timeout(UINT_MAX);
-//	}
+
+	iio->set_device_timeout((active_sample_count / active_sample_rate) * 1000 + 100);
+
 
 	if (started) {
 		iio->unlock();
@@ -4784,17 +4776,10 @@ void Oscilloscope::onTriggerModeChanged(int mode)
 	if (mode == 0) { // normal
 		triggerUpdater->setIdleState(CapturePlot::Waiting);
 		triggerUpdater->setInput(CapturePlot::Waiting);
-
-		// wait for the trigger. If there is a timeout set analogin block
-		// will timeout and might take a while untill work() can be called again.
-//		iio->set_device_timeout(UINT_MAX);
-
 	} else if (mode == 1) { // auto
 		triggerUpdater->setIdleState(CapturePlot::Auto);
 		triggerUpdater->setInput(CapturePlot::Auto);
 	}
-
-	iio->set_device_timeout((active_sample_count / active_sample_rate) * 1000 + 100);
 }
 
 void Oscilloscope::updateBufferPreviewer()

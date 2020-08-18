@@ -39,6 +39,7 @@
 using namespace adiscope;
 using namespace libm2k::context;
 using namespace libm2k::analog;
+using namespace libm2k;
 
 PowerController::PowerController(struct iio_context *ctx,
 		ToolMenuItem *toolMenuItem, QJSEngine *engine,
