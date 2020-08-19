@@ -1328,6 +1328,11 @@ void Oscilloscope::enableMixedSignalView()
 void Oscilloscope::disableMixedSignalView()
 {
 
+	const bool iioStarted = isIioManagerStarted();
+	if (iioStarted) {
+		iio->lock();
+	}
+
 	m_mixedSignalViewEnabled = false;
 
 	// disable mixed signal from logic
@@ -1360,6 +1365,9 @@ void Oscilloscope::disableMixedSignalView()
 //			ui->logicSettingsLayout->removeWidget(item->widget());
 //		}
 //	}
+	if (iioStarted) {
+		iio->unlock();
+	}
 }
 
 void Oscilloscope::setDigitalPlotCurvesParams()
