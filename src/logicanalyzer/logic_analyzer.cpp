@@ -337,10 +337,14 @@ std::vector<QWidget *> LogicAnalyzer::enableMixedSignalView(CapturePlot *osc, in
 
 		m_oscPlotCurves.push_back(curve);
 
-		connect(this, &LogicAnalyzer::dataAvailable, this,
+		auto handle = connect(this, &LogicAnalyzer::dataAvailable, this,
 			[=](uint64_t from, uint64_t to){
 			curve->dataAvailable(from, to);
 		}, Qt::DirectConnection);
+
+		connect(curve, &GenericLogicPlotCurve::destroyed, [=](){
+			disconnect(handle);
+		});
 
 		QCheckBox *channelBox = new QCheckBox("DIO " + QString::number(i));
 
