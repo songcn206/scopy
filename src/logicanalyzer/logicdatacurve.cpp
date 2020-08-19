@@ -58,6 +58,8 @@ LogicDataCurve::LogicDataCurve(uint16_t *data, uint8_t bit, adiscope::logic::Log
 void LogicDataCurve::dataAvailable(uint64_t from, uint64_t to)
 {
 
+	std::unique_lock<std::mutex> lock(m_dataAvailableMutex);
+
     if (from == 0) {
 	    reset();
     }
@@ -109,6 +111,7 @@ void LogicDataCurve::drawLines(QPainter *painter, const QwtScaleMap &xMap,
                                const QwtScaleMap &yMap, const QRectF &canvasRect,
                                int from, int to) const
 {
+	std::unique_lock<std::mutex> lock(m_dataAvailableMutex);
 
 	QElapsedTimer tt;
 	tt.start();
